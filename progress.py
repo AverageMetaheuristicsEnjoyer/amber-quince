@@ -10,6 +10,6 @@ for log in sorted(root.glob("*.log")):
     ]
     errors = [line for line in data if re.search(r"Error|Exception|Killed|NotImplemented|FAILED",line,re.I)]
     print("FILE", log.name, "LINES", len(data), flush=True)
-    for line in (signals[:3] + signals[-6:] + errors[-3:]):
+    for line in (signals[:2] + errors[-3:] + data[-12:]):
         print(line[:350], flush=True)
 print("PROGRESS_EXIT=0",flush=True)
