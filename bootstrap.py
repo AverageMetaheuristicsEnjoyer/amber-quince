@@ -30,6 +30,7 @@ with tempfile.TemporaryDirectory(prefix='encrypted-job-', dir='/tmp') as directo
     with tarfile.open(fileobj=io.BytesIO(plaintext), mode='r:gz') as archive:
         archive.extractall(source, filter='data')
     del plaintext
+    (source / 'retrain.sh').write_bytes((root / 'entry.sh').read_bytes())
     manifest = json.loads((source / 'bundle_manifest.json').read_text())
     if manifest['bundle_id'] != public_manifest['bundle_id']:
         raise RuntimeError('Bundle id mismatch')
