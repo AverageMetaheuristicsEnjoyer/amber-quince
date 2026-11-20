@@ -1,47 +1,28 @@
 #!/bin/bash
 set -euo pipefail
-mode=${1:?}
-arm=${2:?}
+world=${OMPI_COMM_WORLD_SIZE:?}
+rank=${OMPI_COMM_WORLD_LOCAL_RANK:?}
 logs=/home/jovyan/quiet-mulberry-logs
+output=$(mktemp -d /tmp/monarch-ddp-bench.XXXXXXXX)
 mkdir -p "$logs"
-exec > >(tee "$logs/$arm.log") 2>&1
-trap 'rc=$?; printf "APPLICATION_EXIT=%s\n" "$rc"; exit 0' EXIT
-output="/tmp/retrain-$arm"
-mkdir -p "$output"
+exec > >(tee "$logs/ddp-bench-${world}gpu-rank${rank}.log") 2>&1
+trap 'rc=$?; printf "BENCH_EXIT=%s\n" "$rc"; rm -rf -- "$output"; exit "$rc"' EXIT
 export PYTHONUNBUFFERED=1 OMP_NUM_THREADS=4 TOKENIZERS_PARALLELISM=false
-export HF_HOME="$output/hf" TRITON_CACHE_DIR="$output/triton"
-export HF_HUB_DISABLE_IMPLICIT_TOKEN=1
+export TRITON_CACHE_DIR="$output/triton"
 python -m venv --system-site-packages "$output/venv"
 export PATH="$output/venv/bin:$PATH"
-python -m pip install --disable-pip-version-check -q 'huggingface_hub>=0.34,<1' pybind11
-python - <<'PY'
-import os
+python -m pip install --disable-pip-version-check -q pybind11
+python - "$rank" <<'PY'
+import sys
 import torch
-from huggingface_hub import HfApi
-assert torch.cuda.is_available()
-name = torch.cuda.get_device_name(0)
-assert torch.cuda.get_device_capability(0)[0] == 9, name
-HfApi(token=os.environ["TRAIN_HF_TOKEN"]).repo_info(os.environ["TRAIN_HF_REPO"])
-print("RUNTIME", name, torch.__version__, flush=True)
+rank = int(sys.argv[1])
+device = torch.cuda.get_device_properties(rank)
+assert device.major == 9, device.name
+print("BENCH_GPU", rank, device.name, device.uuid, flush=True)
 PY
-
-if [[ "$mode" == dense ]]; then
-  python -m pip install --disable-pip-version-check -q     wandb==0.25.1 tiktoken==0.12.0 loguru==0.7.3 schedulefree==1.4.1     pyarrow==20.0.0 transformers==4.51.3 datasets==3.6.0 bitsandbytes==0.45.5 opt_einsum
-  (
-    cd dense
-    export PYTHONPATH=src:.
-    python -m torch.distributed.run --standalone --nproc_per_node=1 retrain.py "$arm" "$output"
-  )
-else
-  export MONARCH_CKPT_ROOT="$output/checkpoints" MONARCH_LOG_ROOT="$logs"
-  export MONARCH_DATA_CACHE_PATH="$output/data-cache"
-  export MONARCH_MICRO_BATCH=16 MONARCH_EVAL_INTERVAL=4000 MONARCH_ALLOW_NO_WANDB=1
-  export MONARCH_SAVE_INTERVAL=13794
-  optimizer=${arm%-n?}
-  blocks=${arm: -1}
-  (
-    cd moe
-    "$PWD/scripts/cloud_monarch_pretrain.sh" hmoe "$optimizer" "$blocks" ddp full
-  )
-fi
-python publish.py "$mode" "$arm" "$output"
+export MONARCH_LOG_ROOT=$logs MONARCH_GLOBAL_BATCH=208 MONARCH_MICRO_BATCH=$((16 / world))
+export MONARCH_BENCH_ITERS=15 WANDB_MODE=offline
+export MONARCH_DATA_CACHE_PATH="/tmp/monarch-ddp-bench-cache-${world}gpu"
+export MONARCH_RUN_SUFFIX=ddp-timing-20261120
+cd moe
+bash scripts/cloud_monarch_pretrain.sh hmoe muon 2 ddp bench
