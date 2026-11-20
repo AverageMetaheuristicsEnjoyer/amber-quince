@@ -36,7 +36,7 @@ else
   export MONARCH_CKPT_ROOT="$output/checkpoints" MONARCH_LOG_ROOT="$logs"
   export MONARCH_DATA_CACHE_PATH="$output/data-cache"
   export MONARCH_MICRO_BATCH=16 MONARCH_EVAL_INTERVAL=4000 MONARCH_ALLOW_NO_WANDB=1
-  export MONARCH_SAVE_INTERVAL=17242
+  export MONARCH_SAVE_INTERVAL=13794
   optimizer=${arm%-n?}
   blocks=${arm: -1}
   (
