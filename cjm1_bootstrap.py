@@ -86,6 +86,7 @@ with tempfile.TemporaryDirectory(prefix="cjm1-job-", dir="/tmp") as directory:
                 sys.stdout.write(line)
                 sys.stdout.flush()
                 log.write(line)
+                log.flush()
             return process.wait()
 
     runtime = (
