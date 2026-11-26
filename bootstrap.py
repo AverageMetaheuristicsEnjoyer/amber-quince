@@ -8,6 +8,12 @@ import sys
 import tarfile
 import tempfile
 
+# One allocation, one bounded entry. Cover dependency setup as well as all subprocesses.
+if os.environ.get('OMPI_COMM_WORLD_RANK', '0') != '0':
+    raise SystemExit(0)
+if sys.argv[1:] == ['screen'] and not os.environ.pop('HISTORY_BOUNDED', ''):
+    os.environ['HISTORY_BOUNDED'] = '1'
+    os.execvp('timeout', ['timeout','--signal=TERM','--kill-after=10s','4490s',sys.executable,__file__,'screen'])
 os.umask(0o077)
 key = os.environ.pop('BUNDLE_KEY')
 root = Path(__file__).resolve().parent
