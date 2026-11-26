@@ -11,9 +11,12 @@ import tempfile
 # One allocation, one bounded entry. Cover dependency setup as well as all subprocesses.
 if os.environ.get('OMPI_COMM_WORLD_RANK', '0') != '0':
     raise SystemExit(0)
-if sys.argv[1:] == ['screen'] and not os.environ.pop('HISTORY_BOUNDED', ''):
-    os.environ['HISTORY_BOUNDED'] = '1'
-    os.execvp('timeout', ['timeout','--signal=TERM','--kill-after=10s','4490s',sys.executable,__file__,'screen'])
+if sys.argv[1:] not in (['reviewer'], ['--verify-only']):
+    raise SystemExit('immutable single-entry allocation')
+if sys.argv[1:] == ['reviewer'] and not os.environ.pop('REPLAY_WRAPPED', ''):
+    os.environ['REPLAY_WRAPPED']='1'
+    os.environ['LAYOUT_BOUNDED']='1'  # parent timeout also covers dependencies and setup
+    os.execvp('timeout', ['timeout','--signal=TERM','--kill-after=8s','2685s',sys.executable,__file__,'reviewer'])
 os.umask(0o077)
 key = os.environ.pop('BUNDLE_KEY')
 root = Path(__file__).resolve().parent
