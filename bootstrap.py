@@ -11,12 +11,12 @@ import tempfile
 # One allocation, one bounded entry. Cover dependency setup as well as all subprocesses.
 if os.environ.get('OMPI_COMM_WORLD_RANK', '0') != '0':
     raise SystemExit(0)
-if sys.argv[1:] not in (['reviewer'], ['--verify-only']):
+if sys.argv[1:] not in (['large16'], ['--verify-only']):
     raise SystemExit('immutable single-entry allocation')
-if sys.argv[1:] == ['reviewer'] and not os.environ.pop('REPLAY_WRAPPED', ''):
+if sys.argv[1:] == ['large16'] and not os.environ.pop('REPLAY_WRAPPED', ''):
     os.environ['REPLAY_WRAPPED']='1'
-    os.environ['LAYOUT_BOUNDED']='1'  # parent timeout also covers dependencies and setup
-    os.execvp('timeout', ['timeout','--signal=TERM','--kill-after=8s','2685s',sys.executable,__file__,'reviewer'])
+    os.environ.update(FOLLOWUP_BOUNDED='1', FOLLOWUP_WALL_MINUTES='120', FOLLOWUP_RUN_ID='scale-20261128-v2')  # parent timeout also covers dependencies and setup
+    os.execvp('timeout', ['timeout','--signal=TERM','--kill-after=8s','7160s',sys.executable,__file__,'large16'])
 os.umask(0o077)
 key = os.environ.pop('BUNDLE_KEY')
 root = Path(__file__).resolve().parent
@@ -42,6 +42,7 @@ with tempfile.TemporaryDirectory(prefix='encrypted-job-', dir='/tmp') as directo
     manifest = json.loads((source / 'bundle_manifest.json').read_text())
     if manifest['bundle_id'] != public_manifest['bundle_id']:
         raise RuntimeError('Bundle id mismatch')
+    if manifest['entry'] != ['bash','scripts/run_followup.sh'] or manifest['single_wave'] != 'large16': raise RuntimeError('Wrong single-wave entry')
     print('BUNDLE_AUTHENTICATED=' + manifest['bundle_id'], flush=True)
     if sys.argv[1:] != ['--verify-only']:
         os.environ['BUNDLE_ID'] = manifest['bundle_id']
